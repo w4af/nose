@@ -14,6 +14,7 @@ from nose.plugins.base import Plugin
 from nose.case import Test
 import logging
 import unittest
+import collections
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class TestSuite(unittest.TestSuite):
     def __init__(self, tests=(), conf=None):
         self.conf = conf
         # Exec lazy suites: makes discovery depth-first
-        if callable(tests):
+        if isinstance(tests, collections.abc.Callable):
             tests = tests()
         log.debug("TestSuite(%r)", tests)
         unittest.TestSuite.__init__(self, tests)

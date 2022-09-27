@@ -7,7 +7,7 @@ function, and ContextSuite,which can run fixtures (setup/teardown
 functions or methods) for the context that contains its tests.
 
 """
-from __future__ import generators
+
 
 import logging
 import sys
@@ -16,6 +16,7 @@ from nose.case import Test
 from nose.config import Config
 from nose.proxy import ResultProxyFactory
 from nose.util import isclass, resolve_name, try_run
+import collections
 
 if sys.platform == 'cli':
     if sys.version_info[:2] < (2, 6):
@@ -75,14 +76,14 @@ class LazySuite(unittest.TestSuite):
             test(result)
         return result
 
-    def __nonzero__(self):
+    def __bool__(self):
         log.debug("tests in %s?", id(self))
         if self._precache:
             return True
         if self.test_generator is None:
             return False
         try:
-            test = self.test_generator.next()
+            test = next(self.test_generator)
             if test is not None:
                 self._precache.append(test)
                 return True
@@ -102,7 +103,7 @@ class LazySuite(unittest.TestSuite):
     def _set_tests(self, tests):
         self._precache = []
         is_suite = isinstance(tests, unittest.TestSuite)
-        if callable(tests) and not is_suite:
+        if isinstance(tests, collections.abc.Callable) and not is_suite:
             self.test_generator = tests()
         elif is_suite:
             # Suites need special treatment: they must be called like
@@ -199,6 +200,8 @@ class ContextSuite(LazySuite):
         """
         # proxy the result for myself
         log.debug("suite %s (%s) run called, tests: %s", id(self), self, self._tests)
+        #import pdb
+        #pdb.set_trace()
         if self.resultProxy:
             result, orig = self.resultProxy(result, self), result
         else:
@@ -437,7 +440,7 @@ class ContextSuiteFactory(object):
         # don't want that, instead want the module the class is in now
         # (classes are re-ancestored elsewhere).
         if hasattr(context, 'im_class'):
-            context = context.im_class
+            context = context.__self__.__class__
         elif hasattr(context, '__self__'):
             context = context.__self__.__class__
         if hasattr(context, '__module__'):
@@ -452,7 +455,7 @@ class ContextSuiteFactory(object):
             ancestors.pop()
 
     def findContext(self, tests):
-        if callable(tests) or isinstance(tests, unittest.TestSuite):
+        if isinstance(tests, collections.abc.Callable) or isinstance(tests, unittest.TestSuite):
             return None
         context = None
         for test in tests:
@@ -528,14 +531,14 @@ class ContextSuiteFactory(object):
                             break
                     if not found_common:
                         remain.append(test)
-                if len(common) > 1:
+                if common:
                     suite = self.makeSuite(common, ancestor)
                 tail = self.mixedSuites(remain)
         return [suite] + tail
 
     def wrapTests(self, tests):
         log.debug("wrap %s", tests)
-        if callable(tests) or isinstance(tests, unittest.TestSuite):
+        if isinstance(tests, collections.abc.Callable) or isinstance(tests, unittest.TestSuite):
             log.debug("I won't wrap")
             return tests
         wrapped = []

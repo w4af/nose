@@ -7,11 +7,12 @@ import re
 import sys
 import textwrap
 import tokenize
+import collections
 
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def inspect_traceback(tb):
         try:
             for tok in tokenize.generate_tokens(src.readline):
                 exp(*tok)
-        except tokenize.TokenError, e:
+        except tokenize.TokenError as e:
             # this can happen if our inspectable region happens to butt up
             # against the end of a construct like a docstring with the closing
             # """ on separate line
@@ -181,14 +182,14 @@ class Expander:
             # Clean this junk up
             try:
                 val = self.locals[tok]
-                if callable(val):
+                if isinstance(val, collections.abc.Callable):
                     val = tok
                 else:
                     val = repr(val)
             except KeyError:
                 try:
                     val = self.globals[tok]
-                    if callable(val):
+                    if isinstance(val, collections.abc.Callable):
                         val = tok
                     else:
                         val = repr(val)

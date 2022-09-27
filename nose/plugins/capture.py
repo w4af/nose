@@ -15,7 +15,7 @@ import sys
 from nose.plugins.base import Plugin
 from nose.pyversion import exc_to_unicode, force_unicode
 from nose.util import ln
-from StringIO import StringIO
+from io import StringIO
 
 
 log = logging.getLogger(__name__)
@@ -89,21 +89,12 @@ class Capture(Plugin):
     def addCaptureToErr(self, ev, output):
         ev = exc_to_unicode(ev)
         output = force_unicode(output)
-        return u'\n'.join([ev, ln(u'>> begin captured stdout <<'),
-                           output, ln(u'>> end captured stdout <<')])
+        return '\n'.join([ev, ln('>> begin captured stdout <<'),
+                           output, ln('>> end captured stdout <<')])
 
     def start(self):
         self.stdout.append(sys.stdout)
         self._buf = StringIO()
-        # Python 3's StringIO objects don't support setting encoding or errors
-        # directly and they're already set to None.  So if the attributes
-        # already exist, skip adding them.
-        if (not hasattr(self._buf, 'encoding') and
-                hasattr(sys.stdout, 'encoding')):
-            self._buf.encoding = sys.stdout.encoding
-        if (not hasattr(self._buf, 'errors') and
-                hasattr(sys.stdout, 'errors')):
-            self._buf.errors = sys.stdout.errors
         sys.stdout = self._buf
 
     def end(self):

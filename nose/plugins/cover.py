@@ -13,7 +13,7 @@ variable.
 import logging
 import re
 import sys
-import StringIO
+import io
 from nose.plugins.base import Plugin
 from nose.util import src, tolist
 
@@ -29,7 +29,6 @@ class Coverage(Plugin):
     coverInstance = None
     coverErase = False
     coverMinPercentage = None
-    coverPrint = True
     score = 200
     status = {}
 
@@ -86,20 +85,10 @@ class Coverage(Plugin):
                           dest="cover_xml",
                           help="Produce XML coverage information")
         parser.add_option("--cover-xml-file", action="store",
-                          default=env.get('NOSE_COVER_XML_FILE',
-                                          'coverage.xml'),
+                          default=env.get('NOSE_COVER_XML_FILE', 'coverage.xml'),
                           dest="cover_xml_file",
                           metavar="FILE",
                           help="Produce XML coverage information in file")
-        parser.add_option("--cover-config-file", action="store",
-                          default=env.get('NOSE_COVER_CONFIG_FILE'),
-                          dest="cover_config_file",
-                          help="Location of coverage config file "
-                          "[NOSE_COVER_CONFIG_FILE]")
-        parser.add_option("--cover-no-print", action="store_true",
-                          default=env.get('NOSE_COVER_NO_PRINT'),
-                          dest="cover_no_print",
-                          help="Suppress printing of coverage information")
 
     def configure(self, options, conf):
         """
@@ -121,8 +110,8 @@ class Coverage(Plugin):
                 self.enabled = False
                 return
         self.conf = conf
-        self.coverErase = bool(options.cover_erase)
-        self.coverTests = bool(options.cover_tests)
+        self.coverErase = options.cover_erase
+        self.coverTests = options.cover_tests
         self.coverPackages = []
         if options.cover_packages:
             if isinstance(options.cover_packages, (list, tuple)):
@@ -146,22 +135,17 @@ class Coverage(Plugin):
         if options.cover_xml:
             self.coverXmlFile = options.cover_xml_file
             log.debug('Will put XML coverage report in %s', self.coverXmlFile)
-        # Coverage uses True to mean default
-        self.coverConfigFile = True
-        if options.cover_config_file:
-            self.coverConfigFile = options.cover_config_file
-        self.coverPrint = not options.cover_no_print
         if self.enabled:
             self.status['active'] = True
             self.coverInstance = coverage.coverage(auto_data=False,
                 branch=self.coverBranches, data_suffix=conf.worker,
-                source=self.coverPackages, config_file=self.coverConfigFile)
+                source=self.coverPackages)
             self.coverInstance._warn_no_data = False
             self.coverInstance.is_worker = conf.worker
             self.coverInstance.exclude('#pragma[: ]+[nN][oO] [cC][oO][vV][eE][rR]')
 
             log.debug("Coverage begin")
-            self.skipModules = sys.modules.keys()[:]
+            self.skipModules = list(sys.modules.keys())[:]
             if self.coverErase:
                 log.debug("Clearing previously collected coverage statistics")
                 self.coverInstance.combine()
@@ -170,6 +154,7 @@ class Coverage(Plugin):
             if not self.coverInstance.is_worker:
                 self.coverInstance.load()
                 self.coverInstance.start()
+
 
     def beforeTest(self, *args, **kwargs):
         """
@@ -189,6 +174,7 @@ class Coverage(Plugin):
             self.coverInstance.stop()
             self.coverInstance.save()
 
+
     def report(self, stream):
         """
         Output code coverage report.
@@ -198,30 +184,29 @@ class Coverage(Plugin):
         self.coverInstance.combine()
         self.coverInstance.save()
         modules = [module
-                   for name, module in sys.modules.items()
-                   if self.wantModuleCoverage(name, module)]
+                    for name, module in list(sys.modules.items())
+                    if self.wantModuleCoverage(name, module)]
         log.debug("Coverage report will cover modules: %s", modules)
-        if self.coverPrint:
-            self.coverInstance.report(modules, file=stream)
+        self.coverInstance.report(modules, file=stream)
 
         import coverage
         if self.coverHtmlDir:
             log.debug("Generating HTML coverage report")
             try:
                 self.coverInstance.html_report(modules, self.coverHtmlDir)
-            except coverage.misc.CoverageException, e:
+            except coverage.misc.CoverageException as e:
                 log.warning("Failed to generate HTML report: %s" % str(e))
 
         if self.coverXmlFile:
             log.debug("Generating XML coverage report")
             try:
                 self.coverInstance.xml_report(modules, self.coverXmlFile)
-            except coverage.misc.CoverageException, e:
+            except coverage.misc.CoverageException as e:
                 log.warning("Failed to generate XML report: %s" % str(e))
 
         # make sure we have minimum required coverage
         if self.coverMinPercentage:
-            f = StringIO.StringIO()
+            f = io.StringIO()
             self.coverInstance.report(modules, file=f)
 
             multiPackageRe = (r'-------\s\w+\s+\d+\s+\d+(?:\s+\d+\s+\d+)?'
@@ -242,6 +227,7 @@ class Coverage(Plugin):
             else:
                 log.error("No total percentage was found in coverage output, "
                           "something went wrong.")
+
 
     def wantModuleCoverage(self, name, module):
         if not hasattr(module, '__file__'):

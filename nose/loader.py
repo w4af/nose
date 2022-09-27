@@ -6,7 +6,7 @@ nose's test loader implements the same basic functionality as its
 superclass, unittest.TestLoader, but extends it by more liberal
 interpretations of what may be a test and how a test may be named.
 """
-from __future__ import generators
+
 
 import logging
 import os
@@ -21,10 +21,11 @@ from nose.config import Config
 from nose.importer import Importer, add_path, remove_path
 from nose.selector import defaultSelector, TestAddress
 from nose.util import func_lineno, getpackage, isclass, isgenerator, \
-    ispackage, regex_last_key, resolve_name, src, transplant_func, \
+    ispackage, regex_last_key, resolve_name, transplant_func, \
     transplant_class, test_address
 from nose.suite import ContextSuiteFactory, ContextList, LazySuite
 from nose.pyversion import sort_list, cmp_to_key
+import collections
 
 
 log = logging.getLogger(__name__)
@@ -113,7 +114,7 @@ class TestLoader(unittest.TestLoader):
                 return False
             return sel.wantMethod(item)
 
-        cases = filter(wanted, dir(testCaseClass))
+        cases = list(filter(wanted, dir(testCaseClass)))
 
         # add runTest if nothing else picked
         if not cases and hasattr(testCaseClass, 'runTest'):
@@ -152,8 +153,6 @@ class TestLoader(unittest.TestLoader):
             # this hard-coded initial-dot test will be removed:
             # http://code.google.com/p/python-nose/issues/detail?id=82
             if entry.startswith('.'):
-                continue
-            if src(entry) == '__init__.py':
                 continue
             entry_path = op_abspath(op_join(path, entry))
             is_file = op_isfile(entry_path)
@@ -226,7 +225,7 @@ class TestLoader(unittest.TestLoader):
                 # Plugins can yield False to indicate that they were
                 # unable to load tests from a file, but it was not an
                 # error -- the file just had no tests to load.
-                tests = filter(None, tests)
+                tests = [_f for _f in tests if _f]
                 return self.suiteClass(tests)
             else:
                 # Nothing was able to even try to load from this file
@@ -252,7 +251,7 @@ class TestLoader(unittest.TestLoader):
             try:
                 for test in g():
                     test_func, arg = self.parseGeneratedTest(test)
-                    if not callable(test_func):
+                    if not isinstance(test_func, collections.abc.Callable):
                         test_func = getattr(m, test_func)
                     yield FunctionTestCase(test_func, arg=arg, descriptor=g)
             except KeyboardInterrupt:
@@ -276,7 +275,7 @@ class TestLoader(unittest.TestLoader):
         # convert the unbound generator method
         # into a bound method so it can be called below
         if hasattr(generator, 'im_class'):
-            cls = generator.im_class
+            cls = generator.__self__.__class__
         inst = cls()
         method = generator.__name__
         generator = getattr(inst, method)
@@ -285,11 +284,11 @@ class TestLoader(unittest.TestLoader):
             try:
                 for test in g():
                     test_func, arg = self.parseGeneratedTest(test)
-                    if not callable(test_func):
+                    if not isinstance(test_func, collections.abc.Callable):
                         test_func = unbound_method(c, getattr(c, test_func))
                     if ismethod(test_func):
                         yield MethodTestCase(test_func, arg=arg, descriptor=g)
-                    elif callable(test_func):
+                    elif isinstance(test_func, collections.abc.Callable):
                         # In this case we're forcing the 'MethodTestCase'
                         # to run the inline function as its test call,
                         # but using the generator method as the 'method of
@@ -331,8 +330,7 @@ class TestLoader(unittest.TestLoader):
                     test_funcs.append(test)
             sort_list(test_classes, lambda x: x.__name__)
             sort_list(test_funcs, func_lineno)
-            tests = map(lambda t: self.makeTest(t, parent=module),
-                        test_classes + test_funcs)
+            tests = [self.makeTest(t, parent=module) for t in test_classes + test_funcs]
 
         # Now, descend into packages
         # FIXME can or should this be lazy?

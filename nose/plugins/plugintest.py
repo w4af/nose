@@ -20,7 +20,7 @@ Here's a simple example with a do-nothing plugin and a composed suite.
     ...         for line in self.output:
     ...             # i.e. check for patterns
     ...             pass
-    ...
+    ... 
     ...         # or check for a line containing ...
     ...         assert "ValueError" in self.output
     ...     def makeSuite(self):
@@ -28,7 +28,7 @@ Here's a simple example with a do-nothing plugin and a composed suite.
     ...             def runTest(self):
     ...                 raise ValueError("I hate foo")
     ...         return [TC('runTest')]
-    ...
+    ... 
     >>> res = unittest.TestResult()
     >>> case = TestPluginFoo('test_foo')
     >>> _ = case(res)
@@ -57,21 +57,21 @@ arguments and reads environment variables.
     ...             self.fanciness = 2
     ...         if 'EVEN_FANCIER' in self.env:
     ...             self.fanciness = 3
-    ...
+    ... 
     ...     def options(self, parser, env=os.environ):
     ...         self.env = env
     ...         parser.add_option('--more-fancy', action='store_true')
     ...         Plugin.options(self, parser, env=env)
-    ...
+    ... 
     ...     def report(self, stream):
     ...         stream.write("FANCY " * self.fanciness)
-    ...
+    ... 
     >>> class TestFancyOutputter(PluginTester, unittest.TestCase):
     ...     activate = '--with-fancy' # enables the plugin
     ...     plugins = [FancyOutputter()]
     ...     args = ['--more-fancy']
     ...     env = {'EVEN_FANCIER': '1'}
-    ...
+    ... 
     ...     def test_fancy_output(self):
     ...         assert "FANCY FANCY FANCY" in self.output, (
     ...                                         "got: %s" % self.output)
@@ -80,7 +80,7 @@ arguments and reads environment variables.
     ...             def runTest(self):
     ...                 raise ValueError("I hate fancy stuff")
     ...         return [TC('runTest')]
-    ...
+    ... 
     >>> res = unittest.TestResult()
     >>> case = TestFancyOutputter('test_fancy_output')
     >>> _ = case(res)
@@ -100,9 +100,9 @@ import sys
 from warnings import warn
 
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 __all__ = ['PluginTester', 'run']
 
@@ -135,7 +135,7 @@ class MultiProcessFile(object):
         if getpid() != self.__master:
             return
 
-        from Queue import Empty
+        from queue import Empty
         from collections import defaultdict
         cache = defaultdict(str)
         while True:
@@ -231,7 +231,7 @@ class PluginTester(object):
             >>> class SomeTest(unittest.TestCase):
             ...     def runTest(self):
             ...         raise ValueError("Now do something, plugin!")
-            ...
+            ... 
             >>> unittest.TestSuite([SomeTest()]) # doctest: +ELLIPSIS
             <unittest...TestSuite tests=[<...SomeTest testMethod=runTest>]>
 
@@ -404,7 +404,7 @@ def run(*arg, **kw):
             sys.stderr = stderr
             sys.stdout = stdout
     out = buffer.getvalue()
-    print munge_nose_output_for_doctest(out)
+    print(munge_nose_output_for_doctest(out))
 
 
 def run_buffered(*arg, **kw):
@@ -414,3 +414,4 @@ def run_buffered(*arg, **kw):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+

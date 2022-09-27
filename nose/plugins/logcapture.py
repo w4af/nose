@@ -23,9 +23,9 @@ from nose.plugins.base import Plugin
 from nose.util import anyp, ln, safe_str
 
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class FilterSet(object):
         any item in `matchers`"""
         def record_matches_key(key):
             return record == key or record.startswith(key + '.')
-        return anyp(bool, map(record_matches_key, matchers))
+        return anyp(bool, list(map(record_matches_key, matchers)))
     _any_match = staticmethod(_any_match)
 
     def _allow(self, record):
@@ -180,7 +180,7 @@ class LogCapture(Plugin):
             if hasattr(root_logger, "handlers"):
                 for handler in root_logger.handlers:
                     root_logger.removeHandler(handler)
-            for logger in logging.Logger.manager.loggerDict.values():
+            for logger in list(logging.Logger.manager.loggerDict.values()):
                 if hasattr(logger, "handlers"):
                     for handler in logger.handlers:
                         logger.removeHandler(handler)
@@ -194,13 +194,6 @@ class LogCapture(Plugin):
             if isinstance(handler, MyMemoryHandler):
                 root_logger.handlers.remove(handler)
         root_logger.addHandler(self.handler)
-        # Also patch any non-propagating loggers in the tree
-        for logger in logging.Logger.manager.loggerDict.values():
-            if not getattr(logger, 'propagate', True) and hasattr(logger, "addHandler"):
-                for handler in logger.handlers[:]:
-                    if isinstance(handler, MyMemoryHandler):
-                        logger.handlers.remove(handler)
-                logger.addHandler(self.handler)
         # to make sure everything gets captured
         loglevel = getattr(self, "loglevel", "NOTSET")
         root_logger.setLevel(getattr(logging, loglevel))
@@ -244,7 +237,7 @@ class LogCapture(Plugin):
         return (ec, self.addCaptureToErr(ev, records), tb)
 
     def formatLogRecords(self):
-        return map(safe_str, self.handler.buffer)
+        return list(map(safe_str, self.handler.buffer))
 
     def addCaptureToErr(self, ev, records):
         return '\n'.join([safe_str(ev), ln('>> begin captured logging <<')] + \
